@@ -20,9 +20,12 @@ def map_y(x):
         return 0
     return x
 
-movie_data = data.pivot(index='user_id',columns='item_id',values='rating')
+movie_data = data.pivot(index='item_id',columns='user_id',values='rating')
 y_data = movie_data.applymap(map_y)
 r_data = movie_data.applymap(map_r)
+
+y = y_data.as_matrix()
+r = r_data.as_matrix()
 
 # y = y_data, r =r_data
 #use svd get features num
@@ -45,30 +48,39 @@ else:
     print "Fetures: %d" % nums
 
 #X_data for features
-x_data = pd.DataFrame(np.random.rand(n_users, nums))
+x_data = pd.DataFrame(np.random.rand(n_items, nums))
+x = x_data.as_matrix()
 #init theta for CF
-theta = pd.DataFrame(np.random.rand(n_users,n_items))
+theta = np.ones((n_users,nums))
+
+print "x: ",np.shape(x)
+print "y: ",np.shape(y)
+print "r: ",np.shape(r)
+print "theta: ",np.shape(theta)
 
 def normalize_rate(y_data,r_data):
-    nums = y_data.shape[0]
+    nums = np.shape(y_data)[0]
     for i in range(nums):
-        idx = r_data[r_data.iloc[i,:] == 1].index
+        idx = np.where(r_data == 1)[1]
         total = 0
         for j in idx:
-            total += y_data.iloc[i,j]
+            total += y_data[i,j]
         meany = total/len(idx)
-        print meany
         for j in idx:
-            y_data.iloc[i,j] -= meany
+            y_data[i,j] -= meany
 
-normalize_rate(y_data,r_data)  #mean normalize
+normalize_rate(y,r)  #mean normalize
 
-def DG(y_data,r_data,x_data,Theta,iters,lam):
+def XTheta_DG(y_data,r_data,x_data,Theta,iters,lam,alpha):
     for i in range(iters):
-        term = x_data * (Theta.T).dot(r_data) - y_data.dot(r_data)
-        x_data = term * Theta +lam *x_data
-        Theta = term.T*x_data+lam*Theta
-        J = ((term.T)*term + lam*Theta.T*Theta + lam*x_data.T*x_data)/2
-        print "lost: %f"%J
+        thetaT = np.transpose(Theta)
+        term = np.dot(x_data,thetaT)*r_data - y_data*r_data
+        #cost = (np.dot(x_data,thetaT)*r_data + lam*np.square(x_data) + lam*np.square(theta))/2
+        grand_x = term * Theta + lam*x_data
+        grand_theta = np.transpose(term)*x_data + lam*Theta
+        x_data = x_data - alpha*grand_x
+        Theta = Theta - alpha*grand_theta
+    return Theta
 
-DG(y_data,r_data,x_data,theta,100,0.001)
+result = XTheta_DG(y_data,r_data,x_data,theta,100,0.1,0.1)
+print result
